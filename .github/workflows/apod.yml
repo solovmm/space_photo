@@ -1,1 +1,30 @@
+name: NASA APOD to Telegram
 
+on:
+  schedule:
+    # Каждый день в 07:00 UTC (для Москвы с поясом +3 это 10:00)
+    - cron: "0 7 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  send-apod:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run script
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
+        run: python main.py

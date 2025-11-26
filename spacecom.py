@@ -109,10 +109,13 @@ def get_space_photo_of_the_day():
 
 def build_caption(data):
     """
-    Подпись: заголовок + пустая строка + ссылка на статью.
+    Подпись: только первая часть заголовка (до ' | ') + ссылка.
     """
-    title = data["title"]
+    raw_title = data["title"] or ""
+    # режем всё, что идёт после " | "
+    title = raw_title.split(" | ")[0].strip()
     link = data["link"]
+
     caption = f"{title}\n\n{link}"
     if len(caption) > 1000:
         caption = caption[:1000]

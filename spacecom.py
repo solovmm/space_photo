@@ -15,7 +15,6 @@ if not CHAT_ID:
 SPACE_TAG_URL = "https://www.space.com/tag/image-of-the-day"
 
 HEADERS = {
-    # Нормальный User-Agent, чтобы сайт не резал бота
     "User-Agent": "Mozilla/5.0 (compatible; space-photo-bot/1.0; +https://www.space.com/)"
 }
 
@@ -23,8 +22,9 @@ HEADERS = {
 def get_space_photo_of_the_day():
     """
     1) Берём страницу https://www.space.com/tag/image-of-the-day
-    2) Находим ПЕРВУЮ ссылку, в href которой есть 'image-of-the-day'
-       (это и есть свежая картинка дня)
+    2) Ищем ссылку на свежую статью:
+       - сначала href с 'space-photo-of-the-day'
+       - если нет, то href с 'image-of-the-day', но НЕ /tag/...
     3) Открываем статью, берём заголовок и большую картинку (og:image)
     """
     # Страница тега
@@ -32,21 +32,32 @@ def get_space_photo_of_the_day():
     resp.raise_for_status()
     html_tag = resp.text
 
-    # Вытаскиваем первую ссылку на статью, где в href есть 'image-of-the-day'
-    # Пример: href="/astronomy/sun/dark-plasma-dances-over-the-sun-space-photo-of-the-day-for-nov-26-2025"
+    # --- 1. Ищем ссылку со строкой 'space-photo-of-the-day' (URL статьи) ---
     m = re.search(
-        r'href=["\']([^"\']*image-of-the-day[^"\']*)["\']',
+        r'href=["\']([^"\']*space-photo-of-the-day[^"\']*)["\']',
         html_tag,
         flags=re.IGNORECASE,
     )
+
+    # --- 2. Если не нашли, ищем 'image-of-the-day', но исключаем /tag/... ---
     if not m:
-        raise RuntimeError("Не удалось найти ссылку на 'image-of-the-day' на странице тега")
+        m = re.search(
+            r'href=["\'](/(?!tag/)[^"\']*image-of-the-day[^"\']*)["\']',
+            html_tag,
+            flags=re.IGNORECASE,
+        )
+
+    if not m:
+        raise RuntimeError("Не удалось найти ссылку на статью Image of the Day")
 
     article_path = m.group(1)
+
     if article_path.startswith("http"):
         article_url = article_path
     else:
         article_url = "https://www.space.com" + article_path
+
+    print("Article URL:", article_url)
 
     # --- Страница статьи ---
     resp2 = requests.get(article_url, headers=HEADERS, timeout=30)
@@ -81,7 +92,11 @@ def get_space_photo_of_the_day():
         image_url = m_img.group(1).strip()
     else:
         # fallback: первая <img> на странице
-        m_img2 = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', html_article, flags=re.IGNORECASE)
+        m_img2 = re.search(
+            r'<img[^>]+src=["\']([^"\']+)["\']',
+            html_article,
+            flags=re.IGNORECASE,
+        )
         if m_img2:
             image_url = m_img2.group(1).strip()
 

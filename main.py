@@ -1,30 +1,58 @@
 import os
+import re
 import requests
+import xml.etree.ElementTree as ET
 
-NASA_API_KEY = os.getenv("NASA_API_KEY", "DEMO_KEY")
-TELEGRAM_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+if not TELEGRAM_TOKEN:
+    raise RuntimeError("TELEGRAM_BOT_TOKEN is not set")
+if not CHAT_ID:
+    raise RuntimeError("TELEGRAM_CHAT_ID is not set")
+
+RSS_URL = "http://apod.nasa.gov/apod.rss"
 
 
-def get_apod():
-    url = "https://api.nasa.gov/planetary/apod"
-    params = {
-        "api_key": NASA_API_KEY,
-        "thumbs": "true",
+def get_apod_from_rss():
+    """Возвращает словарь с данными APOD из RSS."""
+    resp = requests.get(RSS_URL, timeout=20)
+    resp.raise_for_status()
+
+    root = ET.fromstring(resp.content)
+    channel = root.find("channel")
+    if channel is None:
+        raise RuntimeError("RSS channel not found")
+
+    item = channel.find("item")
+    if item is None:
+        raise RuntimeError("RSS item not found")
+
+    title = item.findtext("title", default="NASA APOD")
+    link = item.findtext("link", default="")
+
+    desc_raw = item.findtext("description", default="")
+    # вырезаем HTML-теги из описания
+    description = re.sub(r"<.*?>", "", desc_raw).strip()
+
+    enclosure = item.find("enclosure")
+    image_url = None
+    if enclosure is not None:
+        image_url = enclosure.attrib.get("url")
+
+    return {
+        "title": title,
+        "link": link,
+        "description": description,
+        "image_url": image_url,
     }
-    r = requests.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    return r.json()
 
 
 def build_caption(data):
-    title = data.get("title", "NASA APOD")
-    date = data.get("date", "")
-    explanation = data.get("explanation", "")
+    title = data["title"]
+    description = data["description"]
 
-    caption = f"{title}\n{date}\n\n{explanation}"
-
-    # Ограничение Telegram на подпись к фото около 1024 символов
+    caption = f"{title}\n\n{description}"
     if len(caption) > 1000:
         caption = caption[:1000] + "..."
     return caption
@@ -54,17 +82,15 @@ def send_message(text):
 
 
 def main():
-    data = get_apod()
-    media_type = data.get("media_type")
-    image_url = data.get("hdurl") or data.get("url")
+    data = get_apod_from_rss()
     caption = build_caption(data)
 
-    if media_type == "image" and image_url:
-        send_photo(image_url, caption)
+    if data["image_url"]:
+        # есть прямая ссылка на картинку
+        send_photo(data["image_url"], caption)
     else:
-        # На случай если это видео или что то еще
-        url = data.get("url", "")
-        text = f"NASA APOD (не картинка)\n\n{caption}\n\n{url}"
+        # картинку не нашли – шлём просто текст и ссылку
+        text = f"{caption}\n\n{data['link']}"
         send_message(text)
 
 

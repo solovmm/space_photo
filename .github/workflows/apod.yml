@@ -2,8 +2,8 @@ name: NASA APOD to Telegram
 
 on:
   schedule:
-    # Каждый день в 07:00 UTC (для Москвы с поясом +3 это 10:00)
-    - cron: "0 7 * * *"
+    # Каждый день в 14:00 UTC (для Москвы с поясом +3 это 17:00)
+    - cron: "0 14 * * *"
   workflow_dispatch: {}
 
 jobs:

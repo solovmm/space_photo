@@ -11,53 +11,38 @@ if not TELEGRAM_TOKEN:
 if not CHAT_ID:
     raise RuntimeError("TELEGRAM_CHAT_ID is not set")
 
-SPACE_HOME_URL = "https://www.space.com/"
+# Страница тега "image-of-the-day"
+SPACE_TAG_URL = "https://www.space.com/tag/image-of-the-day"
 
 HEADERS = {
-    # Просто нормальный User-Agent, чтобы сайт не резал бота
+    # Нормальный User-Agent, чтобы сайт не резал бота
     "User-Agent": "Mozilla/5.0 (compatible; space-photo-bot/1.0; +https://www.space.com/)"
 }
 
 
 def get_space_photo_of_the_day():
     """
-    1) Берём главную страницу space.com
-    2) Находим ссылку на 'Space photo of the day'
+    1) Берём страницу https://www.space.com/tag/image-of-the-day
+    2) Находим ПЕРВУЮ ссылку, в href которой есть 'image-of-the-day'
+       (это и есть свежая картинка дня)
     3) Открываем статью, берём заголовок и большую картинку (og:image)
     """
-    # Главная страница
-    resp = requests.get(SPACE_HOME_URL, headers=HEADERS, timeout=30)
+    # Страница тега
+    resp = requests.get(SPACE_TAG_URL, headers=HEADERS, timeout=30)
     resp.raise_for_status()
-    html_home = resp.text
+    html_tag = resp.text
 
-    # --- 1. Пытаемся найти <a ...>...</a>, внутри которого есть 'Space photo of the day' ---
-    pattern = re.compile(
-        r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>.*?Space photo of the day.*?</a>',
-        re.IGNORECASE | re.DOTALL,
+    # Вытаскиваем первую ссылку на статью, где в href есть 'image-of-the-day'
+    # Пример: href="/astronomy/sun/dark-plasma-dances-over-the-sun-space-photo-of-the-day-for-nov-26-2025"
+    m = re.search(
+        r'href=["\']([^"\']*image-of-the-day[^"\']*)["\']',
+        html_tag,
+        flags=re.IGNORECASE,
     )
-    m = pattern.search(html_home)
-
-    # --- 2. Если не нашли — fallback: ищем текст и откатываемся назад до ближайшего <a ... href="..."> ---
     if not m:
-        lower = html_home.lower()
-        idx = lower.find("space photo of the day")
-        if idx == -1:
-            raise RuntimeError("Не удалось найти текст 'Space photo of the day' на главной странице")
+        raise RuntimeError("Не удалось найти ссылку на 'image-of-the-day' на странице тега")
 
-        # ищем начало <a ...> перед этим текстом
-        start_a = lower.rfind("<a", 0, idx)
-        if start_a == -1:
-            raise RuntimeError("Не удалось найти <a ...> перед 'Space photo of the day'")
-
-        snippet = html_home[start_a:idx]
-        m_href = re.search(r'href=["\']([^"\']+)["\']', snippet, re.IGNORECASE)
-        if not m_href:
-            raise RuntimeError("Не удалось вытащить href для 'Space photo of the day'")
-
-        article_path = m_href.group(1)
-    else:
-        article_path = m.group(1)
-
+    article_path = m.group(1)
     if article_path.startswith("http"):
         article_url = article_path
     else:
@@ -68,7 +53,7 @@ def get_space_photo_of_the_day():
     resp2.raise_for_status()
     html_article = resp2.text
 
-    # Заголовок: сначала пробуем og:title
+    # Заголовок: сначала og:title
     m_title = re.search(
         r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']',
         html_article,
@@ -83,7 +68,7 @@ def get_space_photo_of_the_day():
             title_raw = re.sub(r"<.*?>", "", m_h1.group(1))
             title = html.unescape(title_raw).strip()
         else:
-            title = "Space Photo of the Day"
+            title = "Space Image of the Day"
 
     # Картинка: og:image
     m_img = re.search(
@@ -95,7 +80,7 @@ def get_space_photo_of_the_day():
     if m_img:
         image_url = m_img.group(1).strip()
     else:
-        # fallback: первая картинка на странице
+        # fallback: первая <img> на странице
         m_img2 = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', html_article, flags=re.IGNORECASE)
         if m_img2:
             image_url = m_img2.group(1).strip()

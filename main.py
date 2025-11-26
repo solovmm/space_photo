@@ -32,13 +32,20 @@ def get_apod_from_rss():
     link = item.findtext("link", default="")
 
     desc_raw = item.findtext("description", default="")
-    # вырезаем HTML-теги из описания
+    # вырезаем HTML-теги из описания – это текст, который можно будет показать
     description = re.sub(r"<.*?>", "", desc_raw).strip()
 
-    enclosure = item.find("enclosure")
+    # 1) пробуем взять картинку из <enclosure>
     image_url = None
+    enclosure = item.find("enclosure")
     if enclosure is not None:
         image_url = enclosure.attrib.get("url")
+
+    # 2) если <enclosure> нет – вытаскиваем src из <img ...>
+    if not image_url and desc_raw:
+        m = re.search(r'<img[^>]+src="([^"]+)"', desc_raw)
+        if m:
+            image_url = m.group(1)
 
     return {
         "title": title,
@@ -47,14 +54,15 @@ def get_apod_from_rss():
         "image_url": image_url,
     }
 
-
 def build_caption(data):
     title = data["title"]
-    description = data["description"]
+    link = data["link"]
 
-    caption = f"{title}\n\n{description}"
+    # только заголовок и ссылка
+    caption = f"{title}\n\n{link}"
+
     if len(caption) > 1000:
-        caption = caption[:1000] + "..."
+        caption = caption[:1000]
     return caption
 
 

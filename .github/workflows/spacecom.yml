@@ -1,0 +1,29 @@
+name: Space.com Photo to Telegram
+
+on:
+  schedule:
+    # Каждый день в 17:00 UTC = 20:00 по Москве
+    - cron: "0 17 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  send-spacecom:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run script
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python spacecom.py

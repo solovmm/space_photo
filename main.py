@@ -66,6 +66,8 @@ def send_photo(image_url, caption):
         "caption": caption,
     }
     r = requests.post(url, data=payload, timeout=20)
+    if not r.ok:
+        print("Telegram sendPhoto error:", r.status_code, r.text)
     r.raise_for_status()
     return r.json()
 
@@ -77,6 +79,8 @@ def send_message(text):
         "text": text,
     }
     r = requests.post(url, data=payload, timeout=20)
+    if not r.ok:
+        print("Telegram sendMessage error:", r.status_code, r.text)
     r.raise_for_status()
     return r.json()
 

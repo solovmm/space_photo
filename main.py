@@ -12,7 +12,25 @@ if not CHAT_ID:
     raise RuntimeError("TELEGRAM_CHAT_ID is not set")
 
 APOD_API_URL = "https://api.nasa.gov/planetary/apod"
-APOD_PAGE_URL = "https://apod.nasa.gov/apod/astropix.html"
+APOD_PAGE_BASE = "https://apod.nasa.gov/apod"
+
+
+def build_apod_page_url(date_str: str | None) -> str:
+    """
+    Строим персональную ссылку на страницу APOD вида:
+    https://apod.nasa.gov/apod/apYYMMDD.html
+
+    Если даты нет или формат странный – падаем обратно на astropix.html.
+    """
+    if not date_str:
+        return f"{APOD_PAGE_BASE}/astropix.html"
+
+    try:
+        year, month, day = date_str.split("-")  # "2025-11-26"
+        yy = year[2:]                            # "25"
+        return f"{APOD_PAGE_BASE}/ap{yy}{month}{day}.html"
+    except Exception:
+        return f"{APOD_PAGE_BASE}/astropix.html"
 
 
 def get_apod():
@@ -24,6 +42,7 @@ def get_apod():
 
     title = data.get("title", "NASA APOD")
     media_type = data.get("media_type", "image")
+    date_str = data.get("date")  # "2025-11-26"
 
     hd_image_url = None
     image_url = None
@@ -32,20 +51,23 @@ def get_apod():
         hd_image_url = data.get("hdurl")
         image_url = data.get("url")
 
+    page_url = build_apod_page_url(date_str)
+
     return {
         "title": title,
+        "date": date_str,
         "hd_image_url": hd_image_url,
         "image_url": image_url,
         "media_type": media_type,
-        # ссылка на страницу APOD (как на сайте)
-        "link": APOD_PAGE_URL,
-        # на всякий случай сохраним оригинальный url из API (может быть видео)
+        # персональная страница APOD на сайте
+        "link": page_url,
+        # на всякий случай сохраним сырой url из API (для видео и т.п.)
         "raw_url": data.get("url"),
     }
 
 
 def build_caption(info):
-    """Подпись: название + пустая строка + ссылка на страницу APOD."""
+    """Подпись: название + пустая строка + персональная ссылка на APOD."""
     title = info["title"]
     link = info["link"]
 
@@ -87,7 +109,7 @@ def main():
     caption = build_caption(info)
     media_type = info.get("media_type", "image")
 
-    # Если это не картинка (например, видео) — шлем только текст + ссылка на raw_url
+    # Если это не картинка (например, видео) — шлем текст + raw_url
     if media_type != "image":
         extra = info.get("raw_url") or ""
         text = caption if not extra else f"{caption}\n\n{extra}"

@@ -43,10 +43,10 @@ def pick_item_deterministic(archive):
 
     # определяем, какой слот запуска (по UTC-часу)
     hour = now.hour
-    # твой cron: 0 6, 0 11, 0 18 → 3 слота
+    # твой cron: 0 6, 0 10, 0 18 → 3 слота (09:00, 13:00, 21:00 по Москве)
     if hour == 6:
         slot = 0
-    elif hour == 11:
+    elif hour == 10:
         slot = 1
     elif hour == 18:
         slot = 2

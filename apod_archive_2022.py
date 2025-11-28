@@ -22,7 +22,7 @@ def load_archive():
 def build_caption(item):
     title = item["title"]
     link = item["page_url"]
-    caption = f"NASA APOD (архив 2022): {title}\n\n{link}"
+    caption = f"{title}\n\n{link}"
     if len(caption) > 1000:
         caption = caption[:1000]
     return caption

@@ -1,0 +1,33 @@
+name: NASA APOD Archive 2022 to Telegram
+
+on:
+  schedule:
+    # 09:00 по Москве = 06:00 UTC
+    - cron: "0 6 * * *"
+    # 14:00 по Москве = 11:00 UTC
+    - cron: "0 11 * * *"
+    # 21:00 по Москве = 18:00 UTC
+    - cron: "0 18 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  send-apod-archive-2022:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run archive script
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python apod_archive_2022.py

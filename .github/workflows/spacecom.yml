@@ -2,8 +2,8 @@ name: Space.com Photo to Telegram
 
 on:
   schedule:
-    # Каждый день в 17:00 UTC = 20:00 по Москве
-    - cron: "0 17 * * *"
+    # Пн–Пт в 17:00 UTC = 20:00 по Москве
+    - cron: "0 17 * * 1-5"
   workflow_dispatch: {}
 
 jobs:

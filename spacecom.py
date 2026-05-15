@@ -1,6 +1,7 @@
 import os
 import re
 import html
+import json
 import requests
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -13,10 +14,47 @@ if not CHAT_ID:
 
 # Страница тега "image-of-the-day"
 SPACE_TAG_URL = "https://www.space.com/tag/image-of-the-day"
+SENT_URLS_FILE = "spacecom_sent_urls.json"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; space-photo-bot/1.0; +https://www.space.com/)"
 }
+
+
+def normalize_url(url):
+    return (url or "").strip().rstrip("/")
+
+
+def load_sent_urls():
+    if not os.path.exists(SENT_URLS_FILE):
+        return set()
+
+    try:
+        with open(SENT_URLS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return set()
+
+    if not isinstance(data, list):
+        return set()
+
+    return {normalize_url(item) for item in data if isinstance(item, str)}
+
+
+def save_sent_urls(sent_urls):
+    with open(SENT_URLS_FILE, "w", encoding="utf-8") as f:
+        json.dump(sorted(sent_urls), f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
+def mark_sent(url):
+    normalized_url = normalize_url(url)
+    if not normalized_url:
+        return
+
+    sent_urls = load_sent_urls()
+    sent_urls.add(normalized_url)
+    save_sent_urls(sent_urls)
 
 
 def get_space_photo_of_the_day():
@@ -151,18 +189,27 @@ def send_message(text):
 
 def main():
     data = get_space_photo_of_the_day()
+    link = normalize_url(data.get("link"))
+    sent_urls = load_sent_urls()
+
+    if link in sent_urls:
+        print(f"Already sent, skipping: {link}")
+        return
+
     caption = build_caption(data)
     image_url = data.get("image_url")
 
     if image_url:
         try:
             send_photo(image_url, caption)
+            mark_sent(link)
             return
         except requests.HTTPError:
             print("Ошибка при отправке фото, шлём только текст...")
 
     # если нет картинки или не получилось отправить
     send_message(caption)
+    mark_sent(link)
 
 
 if __name__ == "__main__":
